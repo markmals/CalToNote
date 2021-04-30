@@ -1,5 +1,7 @@
 import Cocoa
 import SwiftUI
+import Preferences
+import ComposableArchitecture
 
 final class MenuBarAccessoryItem<Content: View>: NSObject, NSMenuDelegate {
     private var statusBar: NSStatusBar
@@ -10,13 +12,30 @@ final class MenuBarAccessoryItem<Content: View>: NSObject, NSMenuDelegate {
     
     private var eventMonitor: EventMonitor?
     
-    init(width: CGFloat, height: CGFloat, statusItemWidth: CGFloat? = nil, @ViewBuilder content: (@escaping () -> Void) -> Content) {
+    let preferencesWindowController: PreferencesWindowController
+    
+    init(width: CGFloat, height: CGFloat, statusItemWidth: CGFloat? = nil, store: AppStore, content: Content) {
         popover = NSPopover()
         popover.contentViewController = ViewController()
         popover.contentSize = NSSize(width: width, height: height)
         
         statusBar = NSStatusBar()
         statusItem = statusBar.statusItem(withLength: statusItemWidth ?? 20)
+                
+        preferencesWindowController = PreferencesWindowController(
+            panes: [
+                Preferences.Pane(
+                    identifier: Preferences.PaneIdentifier("general"),
+                    title: "General",
+                    toolbarIcon: NSImage(systemSymbolName: "gear", accessibilityDescription: nil)!,
+                    contentView: { GeneralPreferencePane(store: store) }
+                )
+            ]
+        )
+        
+        let viewStore = ViewStore(store)
+        viewStore.send(.registerPopover(popover, eventMonitor, statusItem.button))
+        viewStore.send(.registerPreferencesController(preferencesWindowController))
         
         quitMenu = NSMenu(title: "Status Bar Menu")
         
@@ -40,7 +59,9 @@ final class MenuBarAccessoryItem<Content: View>: NSObject, NSMenuDelegate {
             keyEquivalent: "q"
         )
         
-        popover.contentViewController?.view = NSHostingView(rootView: content { self.hidePopover(self) })
+        popover.contentViewController?.view = NSHostingView(
+            rootView: content.frame(width: width, height: height)
+        )
     }
     
     @objc func togglePopover(sender: AnyObject) {

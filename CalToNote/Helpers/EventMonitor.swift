@@ -23,3 +23,9 @@ class EventMonitor {
         }
     }
 }
+
+extension EventMonitor: Equatable {
+    static func == (lhs: EventMonitor, rhs: EventMonitor) -> Bool {
+        lhs.mask == rhs.mask
+    }
+}
